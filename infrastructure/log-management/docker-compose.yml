@@ -1,0 +1,153 @@
+version: "3.8"
+
+networks:
+  loki-net:
+    driver: bridge
+
+volumes:
+  loki-data:
+  grafana-data:
+  promtail-positions:  # Add persistence for Promtail positions
+
+services:
+  # Docker log setup service (runs once to verify Docker access)
+  setup:
+    image: alpine:latest
+    container_name: ctf-setup
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: >
+      sh -c "
+      echo 'Verifying Docker access for CTF log collection...';
+      if [ -S /var/run/docker.sock ]; then
+        echo 'Docker socket accessible - CTF log collection ready';
+      else
+        echo 'WARNING: Docker socket not accessible - log collection may fail';
+      fi;
+      echo 'CTF Docker log collection setup complete'
+      "
+    restart: "no"
+
+  # Loki - Log aggregation system
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: ctf-loki
+    user: "0:0"  # Run as root to avoid permission issues
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./config/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - loki-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3100/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Promtail - Log shipping agent for Docker container logs
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: ctf-promtail
+    user: "0:0"  # Run as root to access Docker socket
+    volumes:
+      - ./config/promtail-config.yaml:/etc/promtail/config.yaml:ro
+      # Mount Docker socket to collect container logs via API
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Mount Docker log directory to read actual log files
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      # Mount durable session log archives written by participant workspaces
+      - /var/lib/ctf-p/session-logs:/var/lib/ctf-session-logs:ro
+      # Add persistent positions storage
+      - promtail-positions:/tmp/promtail
+    command: -config.file=/etc/promtail/config.yaml
+    networks:
+      - loki-net
+    depends_on:
+      loki:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "promtail --version || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Grafana - Visualization and dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ctf-grafana
+    ports:
+      - "8000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-change-me-before-deployment}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+      - GF_SERVER_ROOT_URL=http://localhost:8000/
+      - GF_SERVER_DOMAIN=localhost
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./config/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+      - ./config/grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml:ro
+      - ./dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - loki-net
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+  # Optional: Docker metrics exporter for monitoring
+  docker-exporter:
+    image: prom/node-exporter:latest
+    container_name: ctf-docker-exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command:
+      - '--path.rootfs=/host'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - loki-net
+    restart: unless-stopped
+
+  # Status display service (shows helpful info after startup)
+  status:
+    image: alpine:latest
+    container_name: ctf-status
+    depends_on:
+      - grafana
+      - loki
+    command: >
+      sh -c "
+      echo '';
+      echo 'CTF Research Docker Logging System Started!';
+      echo '';
+      echo 'Access Points:';
+      echo '   • Grafana Dashboard: http://localhost:8000';
+      echo '     - Username: admin';
+      echo '     - Password: set GRAFANA_ADMIN_PASSWORD before deployment';
+      echo '';
+      echo '   • Loki API: http://localhost:3100';
+      echo '   • Docker Exporter: http://localhost:9100';
+      echo '';
+      echo 'Log Collection:';
+      echo '   • Collecting from Docker containers with label: session_type=ctf-comprehensive';
+      echo '   • Parsing CTF_SETUP and CTF_LOG entries automatically';
+      echo '   • Real-time streaming via Docker logs API';
+      echo '';
+      echo 'Useful Commands:';
+      echo '   • View logs: docker compose logs -f';
+      echo '   • Stop system: docker compose down';
+      echo '   • Restart: docker compose restart';
+      echo '   • Check status: docker compose ps';
+      echo '   • Test CTF container logs: docker logs <ctf-container-name>';
+      echo '';
+      echo 'Check README.md for detailed usage instructions';
+      echo ''
+      "
+    restart: "no" 

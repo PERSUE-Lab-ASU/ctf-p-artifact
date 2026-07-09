@@ -1,0 +1,15 @@
+services:
+  challenge:
+    build: .
+    container_name: challenge
+    hostname: challenge
+    ports:
+      - "2222:22"
+      - "8000:8000"
+    volumes:
+      - ./sessions:/var/log/sessions
+    cap_add:
+      - SYS_PTRACE
+#    sysctls:
+#      kernel.yama.ptrace_scope: "0"
+    restart: unless-stopped

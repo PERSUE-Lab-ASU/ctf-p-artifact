@@ -1,0 +1,12 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+
+sessions/
+participant_credentials/
+
+*.log
+*.tmp
+__pycache__/
+*.pyc

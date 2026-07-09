@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+  - name: 'CTF-P Research Dashboards'
+    orgId: 1
+    folder: 'CTF-P Research'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards 
