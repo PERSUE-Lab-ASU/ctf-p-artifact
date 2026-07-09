@@ -4,6 +4,9 @@ This repository contains the public artifact for CTF-P, a containerized cybersec
 
 The CTF-P environment presents participants with a realistic Linux-based corporate setting containing multiple security tasks, decoy paths, runtime-generated secrets, and researcher-facing instrumentation. It was designed to support research on attacker behavior, decision-making, persistence, risk-taking, and related personality-linked patterns during security problem solving.
 
+## Acknowledgement
+This project is supported by the Air Force Office of Scientific Research (AFOSR) (Award #FA9550-24-1-0227). Any opinions, findings, and conclusions or recommendations expressed in this paper are those of the author(s) and do not necessarily reflect the views of the Air Force Office of Scientific Research (AFOSR).
+
 ## Artifact Scope
 
 The artifact focuses on the reproducible system components:
