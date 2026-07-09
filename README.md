@@ -146,10 +146,6 @@ School of Computing and Augmented Intelligence
 Arizona State University  
 kl1d@asu.edu
 
-## Acknowledgment
-
-This research was supported by the Air Force Office of Scientific Research (AFOSR) under Award FA9550-24-1-0227. Any opinions, findings, conclusions, or recommendations expressed in this paper are those of the author(s) and do not necessarily reflect the views of AFOSR.
-
 ## License
 
 This artifact is released under the MIT License. See `LICENSE`.
